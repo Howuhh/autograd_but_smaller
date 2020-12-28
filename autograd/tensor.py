@@ -56,17 +56,9 @@ class Tensor:
         return Tensor(np.random.uniform(low, high, size=shape))
     
     @staticmethod
-    def randn(shape=None):
-        return Tensor(np.random.standard_normal(size=shape))
-    
-    @staticmethod
     def sum(tensor):
         return tensor.sum()
-    
-    @staticmethod
-    def sigmoid(tensor):
-        return tensor.sigmoid()
-    
+        
     @staticmethod
     def norm(tensor):
         return tensor.norm()

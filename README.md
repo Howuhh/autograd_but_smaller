@@ -9,7 +9,7 @@ X = Tensor.uniform(shape=(100, 10))
 W = Tensor.uniform(shape=(10, 1))
 b = Tensor.zeros(shape=(1, 10))
 
-linear = X @ W + b
+linear = (X @ W + b).relu()
 linear.backward()
 
 print(X.grad, W.grad, b.grad)  # df/dX, df/dW, df/db
@@ -38,7 +38,7 @@ class RegNet(nn.Module):
 
 
 X_, y_ = load_boston()["data"], load_boston()["target"]
-X, y = tensor.Tensor(X_), tensor.Tensor(y_).reshape(-1, 1)
+X, y = Tensor(X_), Tensor(y_).reshape(-1, 1)
 
 # net training
 net = RegNet(X.shape[1])
