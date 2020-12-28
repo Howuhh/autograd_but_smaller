@@ -2,6 +2,7 @@ import numpy as np
 
 from .tensor import Tensor
 
+
 class Module:
     def zero_grad(self):
         for param in self.parameters():
@@ -19,7 +20,13 @@ class Module:
         _parameters(self)
         
         return params
-
+    
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError
+    
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+    
 
 class Linear(Module):
     def __init__(self, in_shape, out_shape):     
@@ -28,5 +35,5 @@ class Linear(Module):
         self.W = Tensor.uniform(-scale, scale, (in_shape, out_shape))
         self.b = Tensor.zeros((1, out_shape))
         
-    def __call__(self, X):
+    def forward(self, X):
         return (X @ self.W) + self.b
