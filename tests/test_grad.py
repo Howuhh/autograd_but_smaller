@@ -5,29 +5,6 @@ import numpy as np
 sys.path.append(".")
 
 from autograd.tensor import Tensor
-from autograd.value import Value
-
-
-def test_single_value():
-    a, b = Value(-4.0), Value(2.0)
-    
-    c = a + b
-    d = a * b + b**3
-    c += c + 1
-    c += 1 + c + (-a)
-    d += d * 2 + (b + a).relu()
-    d += 3 * d + (b - a).relu()
-    e = c - d
-    f = e**2
-    g = f / 2.0
-    g += 10.0 / f
-
-    g.backward()    
-    
-    assert round(g.value, 4) == 24.7041
-    assert round(a.grad, 4) == 138.8338
-    assert round(b.grad, 4) == 645.5773
-    print("Single value: OK")
 
 
 def test_backward_pass():
@@ -65,5 +42,4 @@ def test_backward_pass():
 
 
 if __name__ == "__main__":
-    test_single_value()
     test_backward_pass()

@@ -2,4 +2,8 @@ __pycache__
 .ipynb_checkpoints
 .DS_Store
 
+# test/outdated
 autograd/value.py
+autograd/functional.py
+
+tests/test_value.py
