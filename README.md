@@ -53,6 +53,8 @@ for _ in range(500):
     optimizer.step()
 ```
 
+![training](boston_error.png)
+
 # References
 
 - https://www.jmlr.org/papers/volume18/17-468/17-468.pdf
