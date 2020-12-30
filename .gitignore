@@ -4,6 +4,4 @@ __pycache__
 
 # test/outdated
 autograd/value.py
-autograd/functional.py
-
 tests/test_value.py

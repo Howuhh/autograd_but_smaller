@@ -3,6 +3,7 @@ import numpy as np
 from scipy.special import expit
 from collections import deque
 
+
 class Tensor:
     def __init__(self, value):
         if isinstance(value, (int, float)):
@@ -103,6 +104,7 @@ class Tensor:
         
         return node
     
+    # TODO: this also need backward!
     def norm(self):
         return np.linalg.norm(self.value)
     
@@ -144,7 +146,7 @@ class Tensor:
     
     def __rmatmul__(self, other):
         pass
-        
+
     def __add__(self, other):
         other = self.check_input(other)
         
