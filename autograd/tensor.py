@@ -1,5 +1,10 @@
 import numpy as np
 
+try:
+    import functional as F
+except ModuleNotFoundError:
+    from . import functional as F
+
 from scipy.special import expit
 from collections import deque
 
@@ -26,19 +31,11 @@ class Tensor:
     def safe_grad(self):
         return self.zeros(self.shape) if self.grad is None else self.grad
     
-    @staticmethod
-    def check_input(value):
-        if isinstance(value, (int, float)):
-            return Tensor([value])
-        elif isinstance(value, (list, np.ndarray)):
-            return Tensor(value)
-        return value
-    
     # magick, не до коцна понял когда нужно суммировать (?)
     @staticmethod
     def unbroadcast(out, in_shape):
         sum_axis = None
-        # Need to sum all axis with 1 = in_shape[i] < out.shape[i]
+        # sum all axis with in_shape[i] < grad.shape[i]
         if in_shape != (1,):
             sum_axis = tuple([i for i in range(len(in_shape)) if in_shape[i] == 1 and out.shape[i] > 1])
 
@@ -55,14 +52,6 @@ class Tensor:
     @staticmethod
     def uniform(low=0.0, high=1.0, shape=None):
         return Tensor(np.random.uniform(low, high, size=shape))
-    
-    @staticmethod
-    def sum(tensor):
-        return tensor.sum()
-        
-    @staticmethod
-    def norm(tensor):
-        return tensor.norm()
         
     @staticmethod
     def topsort(root):
@@ -94,127 +83,61 @@ class Tensor:
         return Tensor(self.value.reshape(*shapes))
     
     def sum(self):
-        node = Tensor(self.value.sum(axis=None))
-        
-        def _backward(din):
-            return [din]
-        
-        node._backward = _backward
-        node.children = [self]
-        
-        return node
+        return F.sum(self)
     
-    # TODO: this also need backward!
     def norm(self):
-        return np.linalg.norm(self.value)
+        return F.norm(self)
     
     def sigmoid(self):
-        exp = expit(self.value)
-        
-        node = Tensor(exp)
-        
-        def _backward(din):
-            return [din * exp * (1 - exp)]
-        
-        node._backward = _backward
-        node.children = [self]
-        
-        return node
+        return F.sigmoid(self)
     
     def relu(self):
-        node = Tensor(np.maximum(0, self.value))
-        
-        def _backward(din):
-            return [din * (self.value >= 0)]
-        
-        node._backward = _backward
-        node.children = [self]
-        
-        return node
+        return F.relu(self)
     
     def __matmul__(self, other):
-        # http://cs231n.stanford.edu/handouts/linear-backprop.pdf
-        node = Tensor(self.value @ other.value)
-        
-        def _backward(din):
-            return [din @ other.value.T, self.value.T @ din]
-        
-        node._backward = _backward
-        node.children = [self, other]
-        
-        return node
+        return F.matmul(self, other)
     
     def __rmatmul__(self, other):
-        pass
+        return F.matmul(other, self)
 
     def __add__(self, other):
-        other = self.check_input(other)
-        
-        node = Tensor(self.value + other.value)
-        
-        def _backward(din):
-            return [din, din]
-
-        node._backward = _backward
-        node.children = [self, other]
-        
-        return node
+        return F.add(self, other)
     
     def __radd__(self, other):
-        return self + other
+        return F.add(other, self)
     
     def __sub__(self, other):
         return self + (-other)
     
     def __rsub__(self, other):
-        return self + (-other)
+        return other + (-self)
     
     def __iadd__(self, other):
-        other = self.check_input(other)
+        other = F.check_input(other)
         self.value = self.value + other.value
         
         return self
     
     def __isub__(self, other):
-        other = self.check_input(other)
+        other = F.check_input(other)
         self.value = self.value - other.value
         
         return self
     
     def __mul__(self, other):
-        other = self.check_input(other)
-        
-        node = Tensor(self.value * other.value)
-        
-        def _backward(din):
-            return [din * other.value, din * self.value]
-
-        node._backward = _backward
-        node.children = [self, other]
-        
-        return node
+        return F.mul(self, other)
 
     def __rmul__(self, other):
-        return self * other
+        return F.mul(other, self)
     
     def __pow__(self, other):
-        assert isinstance(other, (int, float))
-        
-        node = Tensor(self.value ** other)
-        
-        def _backward(din):
-            return [din * (other * self.value ** (other - 1))]
-        
-        node._backward = _backward
-        node.children = [self]
-        
-        return node
+        return F.pow(self, other)
     
     def __neg__(self):
         return self * -1
     
     def __truediv__(self, other):
-        return self * (1 / other)
+        return self * other**(-1)
     
     def __repr__(self):
         array_repr = ",\n".join([7*" " + str(line) if i > 0 else str(line) for i, line in enumerate(self.value)])

@@ -3,133 +3,182 @@ import numpy as np
 from scipy.special import expit
 
 try:
-    from .tensor import Tensor
+    import tensor
 except ModuleNotFoundError:
-    from tensor import Tensor
+    from . import tensor
 
 
 def check_input(value):
     if isinstance(value, (int, float)):
-        return Tensor([value])
+        return tensor.Tensor([value])
     elif isinstance(value, (list, np.ndarray)):
-        return Tensor(value)
+        return tensor.Tensor(value)
     return value
 
 
+class Context:
+    def __init__(self):
+        self.saved = []
+        
+    def save_for_backward(self, *args):
+        self.saved.extend(args)
+
+
 class Function:
-    def forward(self, *args, **kwargs):
+    @staticmethod
+    def forward(ctx, *args, **kwargs):
         raise NotImplementedError
     
-    def backward(self, *args, **kwargs):
+    @staticmethod
+    def backward(ctx, *args, **kwargs):
         raise NotImplementedError
-    
+        
     def __call__(self, *args, **kwargs):
-        args = [check_input(arg) for arg in args]
+        ctx = Context()
     
-        out = self.forward(*args, **kwargs)
+        args = [check_input(arg) for arg in args]
+        out = self.forward(ctx, *args, **kwargs)
         
-        assert isinstance(out, Tensor), "function should return autograd.Tensor"
+        assert isinstance(out, tensor.Tensor), "function should return autograd.Tensor"
         
-        out.children = [child for child in args if isinstance(child, Tensor)]
-        out._backward = self.backward
+        out.children = [child for child in args if isinstance(child, tensor.Tensor)]
+        out._backward = lambda grad_in: self.backward(ctx, grad_in)
             
         return out
     
     
 class Add(Function):
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        return Tensor(x.value + y.value)
+    @staticmethod
+    def forward(ctx, x, y) :
+        return tensor.Tensor(x.value + y.value)
     
-    def backward(self, grad_in):
+    @staticmethod
+    def backward(ctx, grad_in):
         return [grad_in, grad_in]
 
 
 class Mul(Function):
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        self.x, self.y = x, y
-        
-        return Tensor(x.value * y.value)
+    @staticmethod
+    def forward(ctx, x, y):
+        ctx.save_for_backward(x, y)
+        return tensor.Tensor(x.value * y.value)
     
-    def backward(self, grad_in):
-        return [grad_in * self.y.value, grad_in * self.x.value]
+    @staticmethod
+    def backward(ctx, grad_in):
+        x, y = ctx.saved
+        return [grad_in * y.value, grad_in * x.value]
 
 
 class MatMul(Function):
-    def forward(self, x, y):
-        self.x, self.y = x, y
+    @staticmethod
+    def forward(ctx, x, y):
+        ctx.save_for_backward(x, y)
+        return tensor.Tensor(x.value @ y.value)
         
-        return Tensor(x.value @ y.value)
-        
-    def backward(self, grad_in):
-        # Y = XW
-        # dY/dX = dD @ W.t
-        # dY/dW = X.T @ dD
-        return [grad_in @ self.y.value.T, self.x.value.T @ grad_in]
+    @staticmethod
+    def backward(ctx, grad_in):
+        x, y = ctx.saved        
+        return [grad_in @ y.value.T, x.value.T @ grad_in]
+
 
 class Pow(Function):
-    def forward(self, x, y):
-        self.x, self.y = x, y
-        
-        return Tensor(x.value ** y.value)  # only for Tensor^(int/float) for now
+    @staticmethod
+    def forward(ctx, x, y):
+        ctx.save_for_backward(x, y)
+        return tensor.Tensor(x.value ** y.value)
     
-    def backward(self, grad_in):
-        dx = self.y.value * self.x.value ** (self.y.value - 1)
-        dy = self.x.value ** self.y.value * np.log(self.x.value)
+    @staticmethod
+    def backward(ctx, grad_in):
+        x, y = ctx.saved
+        
+        dx = y.value * x.value ** (y.value - 1)
+        # TODO: may cause inf if base x < 0
+        dy = x.value ** y.value * np.log(x.value)
         
         return [grad_in * dx, grad_in * dy] 
 
 
 class Sum(Function):
-    def forward(self, x):
-        return Tensor(x.value.sum())
+    @staticmethod
+    def forward(ctx, x, axis=None):
+        # TODO: add axis for summation
+        return tensor.Tensor(x.value.sum())
     
-    def backward(self, grad_in):
+    @staticmethod
+    def backward(ctx, grad_in):
         return [grad_in]
 
 
 class Sigmoid(Function):
-    def forward(self, x):
-        self.exp = expit(x.value)
-        return Tensor(self.exp)
+    @staticmethod
+    def forward(ctx, x):    
+        ctx.exp = expit(x.value)
+        return tensor.Tensor(ctx.exp)
     
-    def backward(self, grad_in):
-        return [grad_in * self.exp * (1 - self.exp)]
+    @staticmethod
+    def backward(ctx, grad_in):
+        return [grad_in * ctx.exp * (1 - ctx.exp)]
     
 
 class ReLU(Function):
-    def forward(self, x):
-        self.x = x
-        return Tensor(np.maximum(0, x.value))
+    @staticmethod
+    def forward(ctx, x):
+        ctx.x = x
+        return tensor.Tensor(np.maximum(0, x.value))
     
-    def backward(self, grad_in):
-        return [grad_in * (self.x >= 0)]
+    @staticmethod
+    def backward(ctx, grad_in):
+        return [grad_in * (ctx.x.value >= 0)]
+    
+
+class Norm(Function):
+    @staticmethod
+    def forward(ctx, x):  # frobenius norm (even for matrices)
+        norm = np.linalg.norm(x.value)
+        ctx.save_for_backward(x, norm) 
+        
+        return tensor.Tensor(norm)
+    
+    @staticmethod
+    def backward(ctx, grad_in):
+        x, norm = ctx.saved
+        return [grad_in * (x.value / norm)]
 
 
-add = Add()    
-mul = Mul()
-pow = Pow()
-sum = Sum()
-sigmoid = Sigmoid()
-relu = ReLU()
+class Log(Function):
+    @staticmethod
+    def forward(ctx, x):
+        ctx.x = x
+        return tensor.Tensor(np.log(x.value))
+    
+    @staticmethod
+    def backward(ctx, grad_in):
+        return [grad_in / ctx.x.value]
 
+
+add, mul, matmul, pow = Add(), Mul(), MatMul(), Pow()
+sum, norm, sigmoid, relu = Sum(), Norm(), Sigmoid(), ReLU()
+log = Log()
+
+
+def softmax(x, axis=None):
+    exp = pow(np.e, x)
+    return exp / sum(exp, axis=axis)
+
+
+if __name__ == "__main__":
+    import torch
+    import torch.nn.functional as F
     
-if __name__ == "__main__":    
-    test1 = Tensor(np.ones(5) * 5).reshape(-1, 1)
-    test2 = Tensor(np.ones(5) * 2).reshape(-1, 1)
+    test = tensor.Tensor.uniform(-10, 10, shape=(10, 1))
+    test_t = torch.tensor(test.value, requires_grad=True)
     
-    z1 = test1 * test2
-    z2 = mul(test1, test2)
+
+    z1 = F.softmax(test_t, dim=0)
+    z2 = softmax(test)
     
-    
-    print(z1)
-    z1.backward()
-    
-    print(test1.grad, test2.grad)
-    test1.grad = None
-    test2.grad = None
-    
-    print(z2)
+    z1.backward(torch.ones_like(z1))
     z2.backward()
-    print(test1.grad, test2.grad)
-    
-    
+
+    print(test_t.grad)
+    print(test.grad)

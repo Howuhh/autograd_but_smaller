@@ -36,7 +36,6 @@ def test_boston():
         net.zero_grad()
         
         loss = MSELoss(net(X), y)
-        
         loss.backward()
         optimizer.step()
     
