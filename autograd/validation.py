@@ -22,16 +22,4 @@ def MSELoss(y_pred, y_true):
 def CrossEntropyLoss(y_pred, y_true):    
     return -F.sum(y_true * F.log(y_pred)) / y_true.shape[0]
 
-
-if __name__ == "__main__":
-    import torch
-    
-    test = Tensor.uniform(0, 10, shape=(5, 3))
-    labels = Tensor([0, 1, 0, 2, 3])
-    
-    labels_ohe = one_hot_encode(labels.value)
-    print(labels_ohe)
-    print(test)
-    
-    # CrossEntropyLoss()
     

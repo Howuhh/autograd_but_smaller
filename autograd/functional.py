@@ -34,9 +34,8 @@ class Function:
         raise NotImplementedError
         
     def __call__(self, *args, **kwargs):
-        ctx = Context()
+        ctx, args = Context(), [check_input(arg) for arg in args]
     
-        args = [check_input(arg) for arg in args]
         out = self.forward(ctx, *args, **kwargs)
         
         assert isinstance(out, tensor.Tensor), "function should return autograd.Tensor"
@@ -67,6 +66,19 @@ class Mul(Function):
     def backward(ctx, grad_in):
         x, y = ctx.saved
         return [grad_in * y.value, grad_in * x.value]
+
+
+# loses preicison with x * y**(-1), so a distinct implementation for div
+class Div(Function):
+    @staticmethod
+    def forward(ctx, x, y):
+        ctx.save_for_backward(x, y)
+        return tensor.Tensor(x.value / y.value)
+    
+    @staticmethod
+    def backward(ctx, grad_in):
+        x, y = ctx.saved
+        return [grad_in * (1 / y.value), grad_in * -(x.value / y.value**2)]
 
 
 class MatMul(Function):
@@ -101,13 +113,13 @@ class Pow(Function):
 class Sum(Function):
     @staticmethod
     def forward(ctx, x, axis=None):
-        # TODO: add axis for summation
-        return tensor.Tensor(x.value.sum())
+        ctx.save_for_backward(x, axis)
+        return tensor.Tensor(x.value.sum(axis=axis, keepdims=True))
     
     @staticmethod
     def backward(ctx, grad_in):
-        return [grad_in]
-
+        return [grad_in]   # maybe this does not work when sum over multiple axes, need some reshaping work
+    
 
 class Sigmoid(Function):
     @staticmethod
@@ -156,29 +168,10 @@ class Log(Function):
         return [grad_in / ctx.x.value]
 
 
-add, mul, matmul, pow = Add(), Mul(), MatMul(), Pow()
-sum, norm, sigmoid, relu = Sum(), Norm(), Sigmoid(), ReLU()
-log = Log()
+add, mul, div, pow, log = Add(), Mul(), Div(), Pow(), Log()
+matmul, sum, norm, sigmoid, relu = MatMul(), Sum(), Norm(), Sigmoid(), ReLU()
 
 
 def softmax(x, axis=None):
-    exp = pow(np.e, x)
-    return exp / sum(exp, axis=axis)
-
-
-if __name__ == "__main__":
-    import torch
-    import torch.nn.functional as F
-    
-    test = tensor.Tensor.uniform(-10, 10, shape=(10, 1))
-    test_t = torch.tensor(test.value, requires_grad=True)
-    
-
-    z1 = F.softmax(test_t, dim=0)
-    z2 = softmax(test)
-    
-    z1.backward(torch.ones_like(z1))
-    z2.backward()
-
-    print(test_t.grad)
-    print(test.grad)
+    exp = np.e ** x
+    return exp / exp.sum(axis=axis)

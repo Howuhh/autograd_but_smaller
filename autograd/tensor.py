@@ -82,14 +82,17 @@ class Tensor:
     def reshape(self, *shapes):
         return Tensor(self.value.reshape(*shapes))
     
-    def sum(self):
-        return F.sum(self)
+    def sum(self, axis=None):
+        return F.sum(self, axis=axis)
     
     def norm(self):
         return F.norm(self)
     
     def sigmoid(self):
         return F.sigmoid(self)
+    
+    def softmax(self, axis=None):
+        return F.softmax(self, axis=axis)
     
     def relu(self):
         return F.relu(self)
@@ -133,11 +136,17 @@ class Tensor:
     def __pow__(self, other):
         return F.pow(self, other)
     
-    def __neg__(self):
-        return self * -1
+    def __rpow__(self, other):
+        return F.pow(other, self)
     
     def __truediv__(self, other):
-        return self * other**(-1)
+        return F.div(self, other)
+    
+    def __rtruediv__(self, other):
+        return F.div(other, self)
+    
+    def __neg__(self):
+        return F.mul(self, -1)
     
     def __repr__(self):
         array_repr = ",\n".join([7*" " + str(line) if i > 0 else str(line) for i, line in enumerate(self.value)])
