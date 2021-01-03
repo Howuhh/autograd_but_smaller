@@ -75,8 +75,7 @@ optimizer = SGD(net.parameters(), lr=1e-5)
 for _ in range(n_iter):
     net.zero_grad()
     
-    y_pred = net(X)
-    loss = CrossEntropyLoss(y_pred, y)
+    loss = CrossEntropyLoss(net(X), y)
     
     loss.backward()
     optimizer.step()
