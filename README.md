@@ -21,10 +21,10 @@ print(X.grad, W.grad, b.grad)  # df/dX, df/dW, df/db
 
 ```python
 class RegNet(nn.Module):
-    def __init__(self, in_features):
+    def __init__(self, n_features):
         super().__init__()
 
-        self.l1 = nn.Linear(in_features, 32)
+        self.l1 = nn.Linear(n_features, 32)
         self.l2 = nn.Linear(32, 1)
 
     def forward(self, X):
@@ -49,7 +49,7 @@ for _ in range(500):
     optimizer.step()
 ```
 
-![training](boston_error.png)
+![training](plots/boston_error.png)
 
 ## Classification
 
@@ -81,7 +81,7 @@ for _ in range(n_iter):
     optimizer.step()
 ```
 
-![training](breast_error.png)
+![training](plots/breast_error.png)
 
 # References
 
