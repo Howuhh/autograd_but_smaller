@@ -1,7 +1,5 @@
 # Autograd But Smaller
 
-TODO: add description
-
 # Examples
 
 ```python
